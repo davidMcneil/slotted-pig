@@ -1,0 +1,6 @@
+[workspace]
+resolver = "2"
+members = [
+    "slotted-pig-cli",
+    "slotted-pig-lib",
+]
