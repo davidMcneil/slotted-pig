@@ -14,17 +14,22 @@ pub enum Error {
     Csv(#[from] csv::Error),
 }
 
-/// Basic transaction type
+/// Transaction
 #[derive(Debug, Clone, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Transaction {
+    /// Amount of the transaction
     pub amount: BigDecimal,
+    /// Account the transaction applied to
     pub account: String,
+    /// Description of the transaction
     pub description: String,
+    /// Time of the transaction
     pub time: DateTime<Utc>,
 }
 
 impl Transaction {
+    /// Create a new list of transactions from a csv file
     pub fn from_csv_file<P: AsRef<Path>>(path: P) -> Result<Vec<Transaction>, Error> {
         let file = File::open(path)?;
         let mut reader = csv::Reader::from_reader(file);

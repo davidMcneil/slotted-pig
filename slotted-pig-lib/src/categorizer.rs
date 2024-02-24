@@ -17,21 +17,30 @@ pub enum Error {
     SerdeYaml(#[from] serde_yaml::Error),
 }
 
+/// Rules to determine if a transaction matches a category
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CategoryMatcher {
+pub struct TransactionMatcher {
+    /// Category name for this matcher
     pub category: String,
+    /// Minimum amount of the transaction inclusive
     pub min: Option<BigDecimal>,
+    /// Maximum amount of the transaction inclusive
     pub max: Option<BigDecimal>,
+    /// Regex to match against the account of the transaction
     #[serde(with = "serde_regex", default)]
     pub account: Option<Regex>,
+    /// Regex to match against the description of the transaction
     #[serde(with = "serde_regex", default)]
     pub description: Option<Regex>,
+    /// Time inclusive after which the transaction must have occurred
     pub begin: Option<DateTime<Utc>>,
+    /// Time inclusive before which the transaction must have occurred
     pub end: Option<DateTime<Utc>>,
 }
 
-impl CategoryMatcher {
+impl TransactionMatcher {
+    /// Check if a transaction is a match
     fn matches(&self, transaction: &Transaction) -> bool {
         let min = self
             .min
@@ -67,10 +76,13 @@ impl CategoryMatcher {
     }
 }
 
+/// Hierarchy of categories with arbitrary depth
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Category {
+    /// Category name
     pub category: String,
+    /// Subcategories to consider as part of this category
     #[serde(default)]
     pub subcategories: Vec<Category>,
 }
@@ -107,29 +119,33 @@ impl Category {
     }
 }
 
+/// Transaction categorizer
+///
+/// Matchers are use to assign transactions to leaf categories and then a category hierarchy is
+/// constructed
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Categorizer {
-    category_matchers: Vec<CategoryMatcher>,
-    category_hierarchy: Vec<Category>,
+    /// Transaction matcher rules
+    matchers: Vec<TransactionMatcher>,
+    /// Category hierarchy
+    hierarchy: Vec<Category>,
 }
 
 impl Categorizer {
+    /// Create a new categorizer from a yaml file
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
         Ok(serde_yaml::from_reader(reader)?)
     }
 
+    /// Categorize transactions returning a new category hierarchy
     pub fn categorize(&self, transactions: &[Transaction]) -> CategorizedHierarchy {
         let categorized_transactions = transactions
             .iter()
             .flat_map(|transaction| {
-                if let Some(matcher) = self
-                    .category_matchers
-                    .iter()
-                    .find(|f| f.matches(transaction))
-                {
+                if let Some(matcher) = self.matchers.iter().find(|f| f.matches(transaction)) {
                     Some((matcher.category.clone(), transaction.clone()))
                 } else {
                     eprintln!("No filter matched {:?}", transaction);
@@ -138,7 +154,7 @@ impl Categorizer {
             })
             .collect::<Vec<_>>();
 
-        self.category_hierarchy
+        self.hierarchy
             .iter()
             .map(|category| category.categorize(&categorized_transactions))
             .collect::<Vec<_>>()
@@ -146,15 +162,23 @@ impl Categorizer {
     }
 }
 
+/// Categorized transactions
+///
+/// TODO: Avoid copying the data
 #[derive(Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Categorized {
+    /// Category name
     pub category: String,
+    /// Total amount in this category (ie sum of all subcategory amounts)
     pub total: BigDecimal,
+    /// Subcategories to consider as part of this category
     pub subcategories: Vec<Categorized>,
+    /// Transactions which matched this category (only leaf categories have transactions)
     pub transactions: Vec<Transaction>,
 }
 
+/// Categorized transaction hierarchy
 #[derive(Debug, Into, From, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CategorizedHierarchy {
