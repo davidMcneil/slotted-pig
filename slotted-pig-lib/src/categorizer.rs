@@ -1,65 +1,78 @@
+use std::{fs::File, io::BufReader, path::Path};
+
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use derive_more::{From, Into};
+use derive_more::{Display, From, Into};
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 use crate::transaction::Transaction;
 
+#[derive(Error, Debug, Display)]
+pub enum Error {
+    /// io: {0}
+    Io(#[from] std::io::Error),
+    /// serde_json: {0}
+    SerdeJson(#[from] serde_json::Error),
+}
+
 #[derive(Debug, Deserialize)]
-pub(crate) struct CategoryMatcher {
+#[serde(deny_unknown_fields)]
+pub struct CategoryMatcher {
     pub category: String,
-    pub min_amount: Option<BigDecimal>,
-    pub max_amount: Option<BigDecimal>,
-    #[serde(with = "serde_regex")]
-    pub account_regex: Option<Regex>,
-    #[serde(with = "serde_regex")]
-    pub description_regex: Option<Regex>,
-    pub min_time: Option<DateTime<Utc>>,
-    pub max_time: Option<DateTime<Utc>>,
+    pub min: Option<BigDecimal>,
+    pub max: Option<BigDecimal>,
+    #[serde(with = "serde_regex", default)]
+    pub account: Option<Regex>,
+    #[serde(with = "serde_regex", default)]
+    pub description: Option<Regex>,
+    pub begin: Option<DateTime<Utc>>,
+    pub end: Option<DateTime<Utc>>,
 }
 
 impl CategoryMatcher {
     fn matches(&self, transaction: &Transaction) -> bool {
-        let min_amount = self
-            .min_amount
+        let min = self
+            .min
             .as_ref()
             .map(|a| a <= &transaction.amount)
             .unwrap_or(true);
-        let max_amount = self
-            .max_amount
+        let max = self
+            .max
             .as_ref()
             .map(|a| a >= &transaction.amount)
             .unwrap_or(true);
-        let account_regex = self
-            .account_regex
+        let account = self
+            .account
             .as_ref()
             .map(|r| r.is_match(&transaction.account))
             .unwrap_or(true);
-        let description_regex = self
-            .account_regex
+        let description = self
+            .description
             .as_ref()
             .map(|r| r.is_match(&transaction.description))
             .unwrap_or(true);
-        let min_time = self
-            .min_time
+        let begin = self
+            .begin
             .as_ref()
             .map(|a| a >= &transaction.time)
             .unwrap_or(true);
-        let max_time = self
-            .min_time
+        let end = self
+            .begin
             .as_ref()
             .map(|a| a <= &transaction.time)
             .unwrap_or(true);
-        min_amount && max_amount && account_regex && description_regex && min_time && max_time
+        min && max && account && description && begin && end
     }
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct Category {
-    category: String,
+#[serde(deny_unknown_fields)]
+pub struct Category {
+    pub category: String,
     #[serde(default)]
-    subcategories: Vec<Category>,
+    pub subcategories: Vec<Category>,
 }
 
 impl Category {
@@ -78,11 +91,10 @@ impl Category {
 
         let transactions = transactions
             .iter()
-            .filter_map(|(c, transaction)| {
-                (c == &self.category).then(|| {
-                    total += transaction.amount.clone();
-                    transaction.clone()
-                })
+            .filter(|(c, _)| c == &self.category)
+            .map(|(_, transaction)| {
+                total += transaction.amount.clone();
+                transaction.clone()
             })
             .collect();
 
@@ -96,13 +108,20 @@ impl Category {
 }
 
 #[derive(Debug, Deserialize)]
-pub(crate) struct Categorizer {
+#[serde(deny_unknown_fields)]
+pub struct Categorizer {
     category_matchers: Vec<CategoryMatcher>,
     category_hierarchy: Vec<Category>,
 }
 
 impl Categorizer {
-    fn categorize(&self, transactions: Vec<Transaction>) -> CategorizedHierarchy {
+    pub fn from_json_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let file = File::open(path)?;
+        let reader = BufReader::new(file);
+        Ok(serde_json::from_reader(reader)?)
+    }
+
+    pub fn categorize(&self, transactions: &[Transaction]) -> CategorizedHierarchy {
         let categorized_transactions = transactions
             .iter()
             .flat_map(|transaction| {
@@ -127,15 +146,17 @@ impl Categorizer {
     }
 }
 
-#[derive(Debug)]
-pub(crate) struct Categorized {
-    category: String,
-    total: BigDecimal,
-    subcategories: Vec<Categorized>,
-    transactions: Vec<Transaction>,
+#[derive(Debug, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct Categorized {
+    pub category: String,
+    pub total: BigDecimal,
+    pub subcategories: Vec<Categorized>,
+    pub transactions: Vec<Transaction>,
 }
 
-#[derive(Debug, Into, From)]
-pub(crate) struct CategorizedHierarchy {
-    categorized: Vec<Categorized>,
+#[derive(Debug, Into, From, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct CategorizedHierarchy {
+    pub categorized: Vec<Categorized>,
 }

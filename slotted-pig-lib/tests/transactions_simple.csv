@@ -1,0 +1,4 @@
+amount,account,description,time
+-10,credit card,store1,2024-02-24T20:10:59Z
+-20,credit card,store2,2024-02-23T20:10:59Z
+5,checking,paycheck,2024-02-01T20:10:59Z
