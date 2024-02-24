@@ -59,7 +59,7 @@ impl CategoryMatcher {
             .map(|a| a >= &transaction.time)
             .unwrap_or(true);
         let end = self
-            .begin
+            .end
             .as_ref()
             .map(|a| a <= &transaction.time)
             .unwrap_or(true);
