@@ -1,5 +1,5 @@
 [package]
-name = "slotted-pig-cli"
+name = "slotted-pig-parser"
 version = "0.1.0"
 edition = "2021"
 
