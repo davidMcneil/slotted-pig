@@ -2,6 +2,4 @@
 source: slotted-pig-lib/src/tests.rs
 expression: categorizer.categorize(&transactions)
 ---
-{
-  "categorized": []
-}
+categorized: []

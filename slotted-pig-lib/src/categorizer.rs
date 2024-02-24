@@ -13,8 +13,8 @@ use crate::transaction::Transaction;
 pub enum Error {
     /// io: {0}
     Io(#[from] std::io::Error),
-    /// serde_json: {0}
-    SerdeJson(#[from] serde_json::Error),
+    /// serde_yaml: {0}
+    SerdeYaml(#[from] serde_yaml::Error),
 }
 
 #[derive(Debug, Deserialize)]
@@ -115,10 +115,10 @@ pub struct Categorizer {
 }
 
 impl Categorizer {
-    pub fn from_json_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         let file = File::open(path)?;
         let reader = BufReader::new(file);
-        Ok(serde_json::from_reader(reader)?)
+        Ok(serde_yaml::from_reader(reader)?)
     }
 
     pub fn categorize(&self, transactions: &[Transaction]) -> CategorizedHierarchy {
