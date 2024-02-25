@@ -1,17 +1,108 @@
-#![allow(non_snake_case)]
-// import the prelude to get access to the `rsx!` macro and the `Scope` and `Element` types
 use dioxus::prelude::*;
+use log::LevelFilter;
+use slotted_pig_lib::{
+    categorizer::{CategorizedHierarchy, Categorizer, TransactionMatcher},
+    transaction::Transaction,
+};
+
+const TRANSACTIONS: &str = "amount,account,description,time
+-10,credit card,store1,2024-02-24T20:10:59Z
+-20,credit card,store2,2024-02-23T20:10:59Z
+5,checking,paycheck,2024-02-01T20:10:59Z";
+
+const CATEGORIZER: &str = "matchers:
+- category: store
+  description: 'store.*'
+- category: paycheck
+  min: 0
+
+hierarchy:
+- category: expenses
+  subcategories:
+    - category: store
+- category: income
+  subcategories:
+    - category: paycheck";
 
 fn main() {
-    // launch the web app
+    dioxus_logger::init(LevelFilter::Info).expect("failed to init logger");
     dioxus_web::launch(App);
 }
 
-// create a component that renders a div with the text "Hello, world!"
+#[component]
 fn App(cx: Scope) -> Element {
-    cx.render(rsx! {
-        div {
-            "Hello, world!"
+    let transactions = use_state(cx, || Transaction::from_csv_buffer(TRANSACTIONS).unwrap());
+    let categorizer = use_state(cx, || Categorizer::from_yaml_buffer(CATEGORIZER).unwrap());
+    let categorized = use_state(cx, CategorizedHierarchy::default);
+
+    render!(
+        div { "Header" }
+        TransactionList { transactions: transactions }
+        Categorizer { categorizer: categorizer }
+        Categorized { categorized: categorized }
+        button { onclick: move |_| { categorized.set(categorizer.get().categorize(transactions.get())) },
+            "Categorize"
         }
-    })
+        Counter {}
+        Counter {}
+    )
+}
+
+#[component]
+fn TransactionList<'a>(cx: Scope, transactions: &'a UseState<Vec<Transaction>>) -> Element {
+    let ts = transactions.get();
+    render!(
+        div { "Transactions: {ts.len()}" }
+        ts.iter().map(|t| rsx!(Transaction {transaction: t}))
+    )
+}
+
+#[component]
+fn Transaction<'a>(cx: Scope, transaction: &'a Transaction) -> Element {
+    render!( div { "{transaction.amount} | {transaction.time}" } )
+}
+
+#[component]
+fn Categorizer<'a>(cx: Scope, categorizer: &'a UseState<Categorizer>) -> Element {
+    let categorizer = categorizer.get();
+    render!(
+        div { "Categorizer" }
+        TransactionMatcherList { matchers: &categorizer.matchers }
+    )
+}
+
+#[component]
+fn TransactionMatcherList<'a>(cx: Scope, matchers: &'a Vec<TransactionMatcher>) -> Element {
+    render!(
+        div {
+            div { "Matchers" }
+            matchers.iter().map(|m| rsx!(TransactionMatcher {matcher: m}))
+        }
+    )
+}
+
+#[component]
+fn TransactionMatcher<'a>(cx: Scope, matcher: &'a TransactionMatcher) -> Element {
+    render!( div { "{matcher.category}" } )
+}
+
+#[component]
+fn Categorized<'a>(cx: Scope, categorized: &'a UseState<CategorizedHierarchy>) -> Element {
+    let categorized = categorized.get();
+    render!(
+        div { "Categorized" }
+        categorized.categorized.iter().map(|c| rsx!(
+            div {"{c.category} | {c.total}"}
+        ))
+    )
+}
+
+#[component]
+fn Counter(cx: Scope) -> Element {
+    let mut count = use_state(cx, || 0);
+    render!(
+        div { "Count: {count}" }
+        button { onclick: move |_| { count += 1 }, "Increment" }
+        button { onclick: move |_| { count += 1 }, "Decrement" }
+    )
 }

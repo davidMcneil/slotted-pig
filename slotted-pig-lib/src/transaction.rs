@@ -1,4 +1,8 @@
-use std::{fs::File, path::Path};
+use std::{
+    fs::File,
+    io::{Cursor, Read},
+    path::Path,
+};
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -30,9 +34,17 @@ pub struct Transaction {
 
 impl Transaction {
     /// Create a new list of transactions from a csv file
-    pub fn from_csv_file<P: AsRef<Path>>(path: P) -> Result<Vec<Transaction>, Error> {
-        let file = File::open(path)?;
-        let mut reader = csv::Reader::from_reader(file);
+    pub fn from_csv_file<P: AsRef<Path>>(path: P) -> Result<Vec<Self>, Error> {
+        Self::from_reader(File::open(path)?)
+    }
+
+    /// Create a new list of transactions from a csv buffer
+    pub fn from_csv_buffer<B: AsRef<[u8]>>(buffer: B) -> Result<Vec<Self>, Error> {
+        Self::from_reader(Cursor::new(buffer))
+    }
+
+    fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
+        let mut reader = csv::Reader::from_reader(reader);
         Ok(reader.deserialize().collect::<Result<_, _>>()?)
     }
 }

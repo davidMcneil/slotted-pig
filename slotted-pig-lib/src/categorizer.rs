@@ -1,4 +1,8 @@
-use std::{fs::File, io::BufReader, path::Path};
+use std::{
+    fs::File,
+    io::{BufReader, Cursor, Read},
+    path::Path,
+};
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
@@ -127,16 +131,24 @@ impl Category {
 #[serde(deny_unknown_fields)]
 pub struct Categorizer {
     /// Transaction matcher rules
-    matchers: Vec<TransactionMatcher>,
+    pub matchers: Vec<TransactionMatcher>,
     /// Category hierarchy
-    hierarchy: Vec<Category>,
+    pub hierarchy: Vec<Category>,
 }
 
 impl Categorizer {
     /// Create a new categorizer from a yaml file
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
-        let file = File::open(path)?;
-        let reader = BufReader::new(file);
+        Self::from_reader(File::open(path)?)
+    }
+
+    /// Create a new categorizer from a yaml buffer
+    pub fn from_yaml_buffer<B: AsRef<[u8]>>(buffer: B) -> Result<Self, Error> {
+        Self::from_reader(Cursor::new(buffer))
+    }
+
+    fn from_reader<R: Read>(reader: R) -> Result<Self, Error> {
+        let reader = BufReader::new(reader);
         Ok(serde_yaml::from_reader(reader)?)
     }
 
@@ -179,7 +191,7 @@ pub struct Categorized {
 }
 
 /// Categorized transaction hierarchy
-#[derive(Debug, Into, From, Serialize)]
+#[derive(Debug, Default, Into, From, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CategorizedHierarchy {
     pub categorized: Vec<Categorized>,

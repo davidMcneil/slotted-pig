@@ -5,4 +5,7 @@ edition = "2021"
 
 [dependencies]
 dioxus = "0.4"
+dioxus-logger = "0.4"
 dioxus-web = "0.4"
+log = "0.4"
+slotted-pig-lib = { path = "../slotted-pig-lib" }
