@@ -26,6 +26,11 @@ hierarchy:
 
 fn main() {
     dioxus_logger::init(LevelFilter::Info).expect("failed to init logger");
+
+    #[cfg(not(target_arch = "wasm32"))]
+    dioxus_desktop::launch(App);
+
+    #[cfg(target_arch = "wasm32")]
     dioxus_web::launch(App);
 }
 
@@ -103,6 +108,6 @@ fn Counter(cx: Scope) -> Element {
     render!(
         div { "Count: {count}" }
         button { onclick: move |_| { count += 1 }, "Increment" }
-        button { onclick: move |_| { count += 1 }, "Decrement" }
+        button { onclick: move |_| { count -= 1 }, "Decrement" }
     )
 }

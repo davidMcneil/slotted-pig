@@ -9,3 +9,6 @@ dioxus-logger = "0.4"
 dioxus-web = "0.4"
 log = "0.4"
 slotted-pig-lib = { path = "../slotted-pig-lib" }
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+dioxus-desktop = "0.4"
