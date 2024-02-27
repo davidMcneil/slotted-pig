@@ -1,3 +1,5 @@
+mod parser;
+
 use std::{
     fs::File,
     io::{Cursor, Read},
