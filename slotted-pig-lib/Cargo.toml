@@ -4,9 +4,11 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1"
 bigdecimal = { version = "0.4", features = ["serde"] }
 csv = "1"
 chrono = { version = "0.4", features = ["serde"] }
+dateparser = "0.2"
 derive_more = { version = "0.99" }
 insta = { version = "1", features = ["yaml"] }
 regex = "1"
