@@ -9,9 +9,10 @@ use chrono::{DateTime, Utc};
 use derive_more::{Display, From, Into};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_with::{serde_as, FromInto};
 use thiserror::Error;
 
-use crate::transaction::Transaction;
+use crate::{transaction::Transaction, util::RegexSerde};
 
 #[derive(Error, Debug, Display)]
 pub enum Error {
@@ -22,6 +23,7 @@ pub enum Error {
 }
 
 /// Rules to determine if a transaction matches a category
+#[serde_as]
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionMatcher {
@@ -32,10 +34,10 @@ pub struct TransactionMatcher {
     /// Maximum amount of the transaction inclusive
     pub max: Option<BigDecimal>,
     /// Regex to match against the account of the transaction
-    #[serde(with = "serde_regex", default)]
+    #[serde_as(as = "Option<FromInto<RegexSerde>>")]
     pub account: Option<Regex>,
     /// Regex to match against the description of the transaction
-    #[serde(with = "serde_regex", default)]
+    #[serde_as(as = "Option<FromInto<RegexSerde>>")]
     pub description: Option<Regex>,
     /// Time inclusive after which the transaction must have occurred
     pub begin: Option<DateTime<Utc>>,
