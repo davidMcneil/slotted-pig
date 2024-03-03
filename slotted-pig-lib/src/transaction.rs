@@ -7,9 +7,9 @@ use std::{
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use csv::ReaderBuilder;
+use csv::{ReaderBuilder, StringRecord};
 use dateparser;
-use derive_more::Display;
+use derive_more::{Display, From};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
@@ -71,6 +71,48 @@ impl Transaction {
     }
 }
 
+/// Determine if a columns values should be decided by a header, index, or constant
+#[derive(Debug, Clone, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ColumnDeterminer {
+    /// Column is a constant value
+    Constant(String),
+    /// Column is determined by a header
+    Header(String),
+    /// Column is determined by an index
+    Index(usize),
+}
+
+impl ColumnDeterminer {
+    fn constant_or_index(&self, headers: &StringRecord) -> Result<ConstantOrIndex, String> {
+        match self {
+            Self::Constant(constant) => Ok(constant.as_str().into()),
+            Self::Header(header) => headers
+                .iter()
+                .position(|h| h == header)
+                .map(Into::into)
+                .ok_or_else(|| headers.as_slice().into()),
+            Self::Index(index) => Ok((*index).into()),
+        }
+    }
+}
+
+/// A type to retrieve a columns value from a csv row
+#[derive(From)]
+enum ConstantOrIndex<'a> {
+    Constant(&'a str),
+    Index(usize),
+}
+
+impl<'a> ConstantOrIndex<'a> {
+    fn value(&self, row: &'a StringRecord) -> Result<&'a str, String> {
+        match *self {
+            Self::Constant(constant) => Ok(constant),
+            Self::Index(index) => row.get(index).ok_or_else(|| row.as_slice().into()),
+        }
+    }
+}
+
 /// Configuration for parsing transactions from csv files
 #[serde_as]
 #[derive(Debug, Clone, Deserialize, Serialize)]
@@ -78,33 +120,29 @@ pub struct TransactionParserCsvConfig {
     /// Regex to check if a file should be parsed with this config
     #[serde_as(as = "FromInto<RegexSerde>")]
     pub filename_regex: Regex,
-    /// A preset account value to use for all transactions parsed with this config
-    ///
-    /// This will override the `account_header` setting
-    pub account: Option<String>,
+    /// Does this file have a header?
+    #[serde(default = "TransactionParserCsvConfig::default_has_header")]
+    pub has_header: bool,
     /// Possible headers to use for the amount column
-    #[serde(default = "TransactionParserCsvConfig::default_amount_header")]
-    pub amount_header: String,
+    #[serde(default = "TransactionParserCsvConfig::default_amount_column")]
+    pub amount_column: ColumnDeterminer,
     /// Possible headers to use for the account column
-    #[serde(default = "TransactionParserCsvConfig::default_account_header")]
-    pub account_header: String,
+    #[serde(default = "TransactionParserCsvConfig::default_account_column")]
+    pub account_column: ColumnDeterminer,
     /// Possible headers to use for the description column
-    #[serde(default = "TransactionParserCsvConfig::default_description_header")]
-    pub description_header: String,
+    #[serde(default = "TransactionParserCsvConfig::default_description_column")]
+    pub description_column: ColumnDeterminer,
     /// Possible headers to use for the time column
-    #[serde(default = "TransactionParserCsvConfig::default_time_header")]
-    pub time_header: String,
+    #[serde(default = "TransactionParserCsvConfig::default_time_column")]
+    pub time_column: ColumnDeterminer,
 }
 
 impl TransactionParserCsvConfig {
     pub fn parse_csv<R: Read>(&self, reader: R) -> Result<Vec<Transaction>, Error> {
-        enum AccountNameOrIndex<'a> {
-            Name(&'a str),
-            Index(usize),
-        }
-
         let mut transactions = Vec::new();
-        let mut reader = ReaderBuilder::new().from_reader(reader);
+        let mut reader = ReaderBuilder::new()
+            .has_headers(self.has_header)
+            .from_reader(reader);
 
         // Read the headers and if the file is empty return an empty list
         let headers = reader.headers()?;
@@ -112,59 +150,42 @@ impl TransactionParserCsvConfig {
             return Ok(transactions);
         }
 
-        // Find indices of headers
+        // Find indexes of headers
         // TODO: find indices for files without header
-        let mut amount_index = None;
-        let mut account_index = None;
-        let mut description_index = None;
-        let mut time_index = None;
-        for (idx, header) in headers.iter().enumerate() {
-            if header == self.amount_header {
-                amount_index = Some(idx);
-            }
-            if header == self.account_header {
-                account_index = Some(idx);
-            }
-            if header == self.description_header {
-                description_index = Some(idx);
-            }
-            if header == self.time_header {
-                time_index = Some(idx);
-            }
-        }
-        let amount_index =
-            amount_index.ok_or_else(|| Error::MissingAmount(headers.as_slice().into()))?;
-        let account_name_or_index = if let Some(account) = &self.account {
-            AccountNameOrIndex::Name(account)
-        } else {
-            AccountNameOrIndex::Index(
-                account_index.ok_or_else(|| Error::MissingAccount(headers.as_slice().into()))?,
-            )
-        };
-        let description_index = description_index
-            .ok_or_else(|| Error::MissingDescription(headers.as_slice().into()))?;
-        let time_index = time_index.ok_or_else(|| Error::MissingTime(headers.as_slice().into()))?;
+        let amount_constant_or_index = self
+            .amount_column
+            .constant_or_index(headers)
+            .map_err(Error::MissingAmount)?;
+        let account_constant_or_index = self
+            .account_column
+            .constant_or_index(headers)
+            .map_err(Error::MissingAccount)?;
+        let description_constant_or_index = self
+            .description_column
+            .constant_or_index(headers)
+            .map_err(Error::MissingDescription)?;
+        let time_constant_or_index = self
+            .time_column
+            .constant_or_index(headers)
+            .map_err(Error::MissingTime)?;
 
         // Convert each row to a `Transaction` and add it to the list of transactions
         for result in reader.records() {
-            let record = result?;
+            let record = &result?;
 
             // Get the &str for each column
-            let amount = record
-                .get(amount_index)
-                .ok_or_else(|| Error::MissingAmount(record.as_slice().into()))?;
-            let account = match account_name_or_index {
-                AccountNameOrIndex::Name(account) => account,
-                AccountNameOrIndex::Index(index) => record
-                    .get(index)
-                    .ok_or_else(|| Error::MissingAccount(record.as_slice().into()))?,
-            };
-            let description = record
-                .get(description_index)
-                .ok_or_else(|| Error::MissingDescription(record.as_slice().into()))?;
-            let time = record
-                .get(time_index)
-                .ok_or_else(|| Error::MissingTime(record.as_slice().into()))?;
+            let amount = amount_constant_or_index
+                .value(record)
+                .map_err(Error::MissingAmount)?;
+            let account = account_constant_or_index
+                .value(record)
+                .map_err(Error::MissingAccount)?;
+            let description = description_constant_or_index
+                .value(record)
+                .map_err(Error::MissingDescription)?;
+            let time = time_constant_or_index
+                .value(record)
+                .map_err(Error::MissingTime)?;
 
             // Special parsing or conversion for each column
             let amount = BigDecimal::from_str(amount)?;
@@ -184,20 +205,24 @@ impl TransactionParserCsvConfig {
         Ok(transactions)
     }
 
-    fn default_amount_header() -> String {
-        String::from("amount")
+    fn default_has_header() -> bool {
+        true
     }
 
-    fn default_account_header() -> String {
-        String::from("account")
+    fn default_amount_column() -> ColumnDeterminer {
+        ColumnDeterminer::Header(String::from("amount"))
     }
 
-    fn default_description_header() -> String {
-        String::from("description")
+    fn default_account_column() -> ColumnDeterminer {
+        ColumnDeterminer::Header(String::from("account"))
     }
 
-    fn default_time_header() -> String {
-        String::from("time")
+    fn default_description_column() -> ColumnDeterminer {
+        ColumnDeterminer::Header(String::from("description"))
+    }
+
+    fn default_time_column() -> ColumnDeterminer {
+        ColumnDeterminer::Header(String::from("time"))
     }
 }
 
@@ -205,11 +230,11 @@ impl Default for TransactionParserCsvConfig {
     fn default() -> Self {
         Self {
             filename_regex: Regex::new(".*").expect("failed to compile default regex"),
-            account: None,
-            amount_header: Self::default_amount_header(),
-            account_header: Self::default_account_header(),
-            description_header: Self::default_description_header(),
-            time_header: Self::default_time_header(),
+            has_header: Self::default_has_header(),
+            amount_column: Self::default_amount_column(),
+            account_column: Self::default_account_column(),
+            description_column: Self::default_description_column(),
+            time_column: Self::default_time_column(),
         }
     }
 }
