@@ -73,7 +73,7 @@ impl Transaction {
     }
 
     fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
-        TransactionParserCsv::default().parse_csv(reader)
+        TransactionParserCsv::default().parse_csv(reader, false)
     }
 }
 
@@ -136,7 +136,7 @@ impl TransactionParser {
 
         // Parse the file
         let file = File::open(path)?;
-        csv_config.parse_csv(file)
+        csv_config.parse_csv(file, csv_config.invert_amounts)
     }
 }
 
@@ -151,6 +151,10 @@ pub struct TransactionParserCsv {
     /// Does this file have a header?
     #[serde(default = "TransactionParserCsv::default_has_header")]
     pub has_header: bool,
+    /// Should amounts for this file be inverted (ie positives become negative and negatives
+    /// become positive)?
+    #[serde(default)]
+    pub invert_amounts: bool,
     /// Possible headers to use for the amount column
     #[serde(default = "TransactionParserCsv::default_amount_column")]
     pub amount_column: ColumnDeterminer,
@@ -166,7 +170,11 @@ pub struct TransactionParserCsv {
 }
 
 impl TransactionParserCsv {
-    fn parse_csv<R: Read>(&self, reader: R) -> Result<Vec<Transaction>, Error> {
+    fn parse_csv<R: Read>(
+        &self,
+        reader: R,
+        invert_amounts: bool,
+    ) -> Result<Vec<Transaction>, Error> {
         let mut transactions = Vec::new();
         let mut reader = ReaderBuilder::new()
             .has_headers(self.has_header)
@@ -215,7 +223,10 @@ impl TransactionParserCsv {
                 .map_err(Error::MissingTime)?;
 
             // Special parsing or conversion for each column
-            let amount = BigDecimal::from_str(amount)?;
+            let mut amount = BigDecimal::from_str(amount)?;
+            if invert_amounts {
+                amount = -amount;
+            }
             let account = account.to_string();
             let description = description.to_string();
             let time = dateparser::parse(time)?;
@@ -258,6 +269,7 @@ impl Default for TransactionParserCsv {
         Self {
             filename_regex: Regex::new(".*").expect("failed to compile default regex"),
             has_header: Self::default_has_header(),
+            invert_amounts: Default::default(),
             amount_column: Self::default_amount_column(),
             account_column: Self::default_account_column(),
             description_column: Self::default_description_column(),
