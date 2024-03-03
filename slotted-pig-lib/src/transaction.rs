@@ -71,45 +71,39 @@ impl Transaction {
     }
 }
 
-/// Determine if a columns values should be decided by a header, index, or constant
+/// Configuration for parsing transactions
 #[derive(Debug, Clone, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum ColumnDeterminer {
-    /// Column is a constant value
-    Constant(String),
-    /// Column is determined by a header
-    Header(String),
-    /// Column is determined by an index
-    Index(usize),
+pub struct TransactionParserConfig {
+    #[serde(default)]
+    pub csvs: Vec<TransactionParserCsvConfig>,
 }
 
-impl ColumnDeterminer {
-    fn constant_or_index(&self, headers: &StringRecord) -> Result<ConstantOrIndex, String> {
-        match self {
-            Self::Constant(constant) => Ok(constant.as_str().into()),
-            Self::Header(header) => headers
+impl TransactionParserConfig {
+    pub fn parse_csvs(&self, paths: &[&Path]) -> Result<Vec<Transaction>, Error> {
+        let mut transactions = Vec::new();
+
+        for path in paths {
+            let filename = path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .ok_or_else(|| Error::InvalidPathToFile(path.display().to_string()))?;
+
+            // Find the csv parsing config that matches this filename
+            let csv_config = self
+                .csvs
                 .iter()
-                .position(|h| h == header)
-                .map(Into::into)
-                .ok_or_else(|| headers.as_slice().into()),
-            Self::Index(index) => Ok((*index).into()),
-        }
-    }
-}
+                .find(|csv| csv.filename_regex.is_match(filename))
+                .ok_or_else(|| Error::NoMatchingCsvConfig(path.display().to_string()))?;
 
-/// A type to retrieve a columns value from a csv row
-#[derive(From)]
-enum ConstantOrIndex<'a> {
-    Constant(&'a str),
-    Index(usize),
-}
+            // Parse the file
+            let file = File::open(path)?;
+            let new_transactions = csv_config.parse_csv(file)?;
 
-impl<'a> ConstantOrIndex<'a> {
-    fn value(&self, row: &'a StringRecord) -> Result<&'a str, String> {
-        match *self {
-            Self::Constant(constant) => Ok(constant),
-            Self::Index(index) => row.get(index).ok_or_else(|| row.as_slice().into()),
+            // TODO: check for duplicate transactions
+            transactions.extend(new_transactions);
         }
+
+        Ok(transactions)
     }
 }
 
@@ -151,7 +145,6 @@ impl TransactionParserCsvConfig {
         }
 
         // Find indexes of headers
-        // TODO: find indices for files without header
         let amount_constant_or_index = self
             .amount_column
             .constant_or_index(headers)
@@ -239,38 +232,44 @@ impl Default for TransactionParserCsvConfig {
     }
 }
 
-/// Configuration for parsing transactions
+/// Determine if a columns values should be decided by a header, index, or constant
 #[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TransactionParserConfig {
-    #[serde(default)]
-    pub csvs: Vec<TransactionParserCsvConfig>,
+#[serde(rename_all = "snake_case")]
+pub enum ColumnDeterminer {
+    /// Column is a constant value
+    Constant(String),
+    /// Column is determined by a header
+    Header(String),
+    /// Column is determined by an index
+    Index(usize),
 }
 
-impl TransactionParserConfig {
-    pub fn parse_csvs(&self, paths: &[&Path]) -> Result<Vec<Transaction>, Error> {
-        let mut transactions = Vec::new();
-
-        for path in paths {
-            let filename = path
-                .file_name()
-                .and_then(|f| f.to_str())
-                .ok_or_else(|| Error::InvalidPathToFile(path.display().to_string()))?;
-
-            // Find the csv parsing config that matches this filename
-            let csv_config = self
-                .csvs
+impl ColumnDeterminer {
+    fn constant_or_index(&self, headers: &StringRecord) -> Result<ConstantOrIndex, String> {
+        match self {
+            Self::Constant(constant) => Ok(constant.as_str().into()),
+            Self::Header(header) => headers
                 .iter()
-                .find(|csv| csv.filename_regex.is_match(filename))
-                .ok_or_else(|| Error::NoMatchingCsvConfig(path.display().to_string()))?;
-
-            // Parse the file
-            let file = File::open(path)?;
-            let new_transactions = csv_config.parse_csv(file)?;
-
-            // TODO: check for duplicate transactions
-            transactions.extend(new_transactions);
+                .position(|h| h == header)
+                .map(Into::into)
+                .ok_or_else(|| headers.as_slice().into()),
+            Self::Index(index) => Ok((*index).into()),
         }
+    }
+}
 
-        Ok(transactions)
+/// A type to retrieve a columns value from a csv row
+#[derive(From)]
+enum ConstantOrIndex<'a> {
+    Constant(&'a str),
+    Index(usize),
+}
+
+impl<'a> ConstantOrIndex<'a> {
+    fn value(&self, row: &'a StringRecord) -> Result<&'a str, String> {
+        match *self {
+            Self::Constant(constant) => Ok(constant),
+            Self::Index(index) => row.get(index).ok_or_else(|| row.as_slice().into()),
+        }
     }
 }
