@@ -1,7 +1,8 @@
-use std::path::PathBuf;
+use std::{io, path::PathBuf};
 
 use anyhow::{Context, Result};
-use clap::Parser;
+use clap::{Parser, Subcommand};
+use csv::Writer;
 use sloggers::{
     terminal::TerminalLoggerBuilder,
     types::{Severity, SourceLocation},
@@ -25,6 +26,20 @@ struct Args {
     /// Log level
     #[arg(long)]
     log_level: Option<Severity>,
+    // Subcommands
+    #[command(subcommand)]
+    command: Command,
+}
+
+#[derive(Subcommand, Debug)]
+#[command()]
+enum Command {
+    /// Output the categorized yaml
+    #[command()]
+    Categorize,
+    /// Output the transactions csv
+    #[command()]
+    Transactions,
 }
 
 fn main() -> Result<()> {
@@ -49,8 +64,18 @@ fn main() -> Result<()> {
         .parse_csvs(transaction_files)
         .context("failed to parse transaction files")?;
 
-    let categorized = categorizer.categorize(&transactions);
-    println!("{}", serde_yaml::to_string(&categorized)?);
-
+    match args.command {
+        Command::Categorize => {
+            let categorized = categorizer.categorize(&transactions);
+            println!("{}", serde_yaml::to_string(&categorized)?);
+        }
+        Command::Transactions => {
+            let mut writer = Writer::from_writer(io::stdout());
+            for row in &transactions {
+                writer.serialize(row)?;
+            }
+            writer.flush()?;
+        }
+    }
     Ok(())
 }

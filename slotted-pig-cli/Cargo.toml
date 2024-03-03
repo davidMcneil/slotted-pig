@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1"
 clap = { version = "4", features = ["derive"] }
+csv = "1"
 glob = "0.3"
 serde_yaml = "0.9"
 slotted-pig-lib = { path = "../slotted-pig-lib" }

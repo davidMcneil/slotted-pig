@@ -16,7 +16,6 @@ use thiserror::Error;
 use crate::{transaction::Transaction, util::RegexSerde};
 
 #[derive(Error, Debug, Display)]
-// TODO: fix duplicate error printing in anyhow due to source appearing twice
 pub enum Error {
     /// io
     Io(#[from] std::io::Error),
@@ -97,14 +96,18 @@ pub struct Category {
 
 impl Category {
     fn categorize(&self, transactions: &[(String, Transaction)]) -> Categorized {
+        let mut count = 0;
         let mut total = BigDecimal::default();
+        let mut absolute_total = BigDecimal::default();
 
         let subcategories = self
             .subcategories
             .iter()
             .map(|subcategory| {
                 let categorized = subcategory.categorize(transactions);
+                count += categorized.count;
                 total += categorized.total.clone();
+                absolute_total += categorized.absolute_total.clone();
                 categorized
             })
             .collect();
@@ -113,14 +116,18 @@ impl Category {
             .iter()
             .filter(|(c, _)| c == &self.category)
             .map(|(_, transaction)| {
+                count += 1;
                 total += transaction.amount.clone();
+                absolute_total += transaction.amount.abs();
                 transaction.clone()
             })
             .collect();
 
         Categorized {
             category: self.category.clone(),
+            count,
             total,
+            absolute_total,
             subcategories,
             transactions,
         }
@@ -186,8 +193,12 @@ impl Categorizer {
 pub struct Categorized {
     /// Category name
     pub category: String,
-    /// Total amount in this category (ie sum of all subcategory amounts)
+    /// Count of transactions in this category (ie sum of all subcategory counts)
+    pub count: u64,
+    /// Total amount in this category (ie sum of all subcategory totals)
     pub total: BigDecimal,
+    /// Total absolute amount in this category (ie sum of all subcategory absolute totals)
+    pub absolute_total: BigDecimal,
     /// Subcategories to consider as part of this category
     pub subcategories: Vec<Categorized>,
     /// Transactions which matched this category (only leaf categories have transactions)
