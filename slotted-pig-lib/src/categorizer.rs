@@ -6,7 +6,8 @@ use std::{
 
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
-use derive_more::{Display, From, Into};
+use derive_more::{From, Into};
+use displaydoc::Display;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};

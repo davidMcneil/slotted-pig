@@ -1,7 +1,7 @@
 use std::{
     fs::File,
-    io::{Cursor, Read},
-    path::Path,
+    io::{BufReader, Cursor, Read},
+    path::{Path, PathBuf},
     str::FromStr,
 };
 
@@ -9,7 +9,8 @@ use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use csv::{ReaderBuilder, StringRecord};
 use dateparser;
-use derive_more::{Display, From};
+use derive_more::From;
+use displaydoc::Display;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
@@ -28,7 +29,7 @@ pub enum Error {
     /// io: {0}
     Io(#[from] std::io::Error),
     /// Invalid path to file: {0}
-    InvalidPathToFile(String),
+    InvalidPathToFile(PathBuf),
     /// Missing amount: {0}
     MissingAmount(String),
     /// Missing account: {0}
@@ -38,7 +39,9 @@ pub enum Error {
     /// Missing time: {0}
     MissingTime(String),
     /// No matching csv parser config: {0}
-    NoMatchingCsvConfig(String),
+    NoMatchingCsvConfig(PathBuf),
+    /// serde_yaml: {0}
+    SerdeYaml(#[from] serde_yaml::Error),
 }
 
 /// Transaction
@@ -67,33 +70,52 @@ impl Transaction {
     }
 
     fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
-        TransactionParserCsvConfig::default().parse_csv(reader)
+        TransactionParserCsv::default().parse_csv(reader)
     }
 }
 
 /// Configuration for parsing transactions
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TransactionParserConfig {
+#[derive(Debug, Clone, Deserialize)]
+pub struct TransactionParser {
     #[serde(default)]
-    pub csvs: Vec<TransactionParserCsvConfig>,
+    pub csv: Vec<TransactionParserCsv>,
 }
 
-impl TransactionParserConfig {
-    pub fn parse_csvs(&self, paths: &[&Path]) -> Result<Vec<Transaction>, Error> {
+impl TransactionParser {
+    /// Create a new categorizer from a yaml file
+    pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        Self::from_reader(File::open(path)?)
+    }
+
+    /// Create a new categorizer from a yaml buffer
+    pub fn from_yaml_buffer<B: AsRef<[u8]>>(buffer: B) -> Result<Self, Error> {
+        Self::from_reader(Cursor::new(buffer))
+    }
+
+    fn from_reader<R: Read>(reader: R) -> Result<Self, Error> {
+        let reader = BufReader::new(reader);
+        Ok(serde_yaml::from_reader(reader)?)
+    }
+
+    /// Parse transactions from a CSV files
+    pub fn parse_csvs<'a>(
+        &self,
+        paths: impl Iterator<Item = &'a Path>,
+    ) -> Result<Vec<Transaction>, Error> {
         let mut transactions = Vec::new();
 
         for path in paths {
             let filename = path
                 .file_name()
                 .and_then(|f| f.to_str())
-                .ok_or_else(|| Error::InvalidPathToFile(path.display().to_string()))?;
+                .ok_or_else(|| Error::InvalidPathToFile(path.into()))?;
 
             // Find the csv parsing config that matches this filename
             let csv_config = self
-                .csvs
+                .csv
                 .iter()
                 .find(|csv| csv.filename_regex.is_match(filename))
-                .ok_or_else(|| Error::NoMatchingCsvConfig(path.display().to_string()))?;
+                .ok_or_else(|| Error::NoMatchingCsvConfig(path.into()))?;
 
             // Parse the file
             let file = File::open(path)?;
@@ -109,30 +131,30 @@ impl TransactionParserConfig {
 
 /// Configuration for parsing transactions from csv files
 #[serde_as]
-#[derive(Debug, Clone, Deserialize, Serialize)]
-pub struct TransactionParserCsvConfig {
+#[derive(Debug, Clone, Deserialize)]
+pub struct TransactionParserCsv {
     /// Regex to check if a file should be parsed with this config
     #[serde_as(as = "FromInto<RegexSerde>")]
     pub filename_regex: Regex,
     /// Does this file have a header?
-    #[serde(default = "TransactionParserCsvConfig::default_has_header")]
+    #[serde(default = "TransactionParserCsv::default_has_header")]
     pub has_header: bool,
     /// Possible headers to use for the amount column
-    #[serde(default = "TransactionParserCsvConfig::default_amount_column")]
+    #[serde(default = "TransactionParserCsv::default_amount_column")]
     pub amount_column: ColumnDeterminer,
     /// Possible headers to use for the account column
-    #[serde(default = "TransactionParserCsvConfig::default_account_column")]
+    #[serde(default = "TransactionParserCsv::default_account_column")]
     pub account_column: ColumnDeterminer,
     /// Possible headers to use for the description column
-    #[serde(default = "TransactionParserCsvConfig::default_description_column")]
+    #[serde(default = "TransactionParserCsv::default_description_column")]
     pub description_column: ColumnDeterminer,
     /// Possible headers to use for the time column
-    #[serde(default = "TransactionParserCsvConfig::default_time_column")]
+    #[serde(default = "TransactionParserCsv::default_time_column")]
     pub time_column: ColumnDeterminer,
 }
 
-impl TransactionParserCsvConfig {
-    pub fn parse_csv<R: Read>(&self, reader: R) -> Result<Vec<Transaction>, Error> {
+impl TransactionParserCsv {
+    fn parse_csv<R: Read>(&self, reader: R) -> Result<Vec<Transaction>, Error> {
         let mut transactions = Vec::new();
         let mut reader = ReaderBuilder::new()
             .has_headers(self.has_header)
@@ -219,7 +241,7 @@ impl TransactionParserCsvConfig {
     }
 }
 
-impl Default for TransactionParserCsvConfig {
+impl Default for TransactionParserCsv {
     fn default() -> Self {
         Self {
             filename_regex: Regex::new(".*").expect("failed to compile default regex"),
@@ -233,7 +255,7 @@ impl Default for TransactionParserCsvConfig {
 }
 
 /// Determine if a columns values should be decided by a header, index, or constant
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ColumnDeterminer {
     /// Column is a constant value
