@@ -76,6 +76,7 @@ impl Transaction {
 
 /// Configuration for parsing transactions
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TransactionParser {
     #[serde(default)]
     pub csv: Vec<TransactionParserCsv>,
@@ -132,6 +133,7 @@ impl TransactionParser {
 /// Configuration for parsing transactions from csv files
 #[serde_as]
 #[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TransactionParserCsv {
     /// Regex to check if a file should be parsed with this config
     #[serde_as(as = "FromInto<RegexSerde>")]
@@ -256,7 +258,7 @@ impl Default for TransactionParserCsv {
 
 /// Determine if a columns values should be decided by a header, index, or constant
 #[derive(Debug, Clone, Deserialize)]
-#[serde(rename_all = "snake_case")]
+#[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ColumnDeterminer {
     /// Column is a constant value
     Constant(String),

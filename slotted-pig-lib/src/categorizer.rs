@@ -16,6 +16,7 @@ use thiserror::Error;
 use crate::{transaction::Transaction, util::RegexSerde};
 
 #[derive(Error, Debug, Display)]
+// TODO: fix duplicate error printing in anyhow due to source appearing twice
 pub enum Error {
     /// io: {0}
     Io(#[from] std::io::Error),
