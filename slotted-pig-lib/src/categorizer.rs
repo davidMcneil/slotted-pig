@@ -202,6 +202,7 @@ pub struct Categorized {
     /// Subcategories to consider as part of this category
     pub subcategories: Vec<Categorized>,
     /// Transactions which matched this category (only leaf categories have transactions)
+    #[serde(skip)]
     pub transactions: Vec<Transaction>,
 }
 

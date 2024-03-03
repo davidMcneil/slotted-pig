@@ -59,7 +59,8 @@ fn main() -> Result<()> {
         .context("failed to find transaction files")?;
     let transaction_files = transaction_files
         .iter()
-        .filter_map(|f| f.is_file().then(|| f.as_path()));
+        .filter(|f| f.is_file())
+        .map(|f| f.as_path());
     let transactions = transaction_parser
         .parse_csvs(transaction_files)
         .context("failed to parse transaction files")?;
