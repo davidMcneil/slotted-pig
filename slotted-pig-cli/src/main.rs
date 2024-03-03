@@ -36,18 +36,18 @@ fn main() -> Result<()> {
         .build()?;
 
     let categorizer = Categorizer::from_yaml_file(args.categorizer_path)
-        .context("Failed to parse categorizer")?;
+        .context("failed to parse categorizer")?;
     let transaction_parser = TransactionParser::from_yaml_file(args.transaction_parser_path)
-        .context("Failed to parse transaction parser")?;
+        .context("failed to parse transaction parser")?;
     let transaction_files = glob::glob(&args.transaction_path_pattern)?
         .collect::<Result<Vec<_>, _>>()
-        .context("Failed to find transaction files")?;
+        .context("failed to find transaction files")?;
     let transaction_files = transaction_files
         .iter()
         .filter_map(|f| f.is_file().then(|| f.as_path()));
     let transactions = transaction_parser
         .parse_csvs(transaction_files)
-        .context("Failed to parse transaction files")?;
+        .context("failed to parse transaction files")?;
 
     let categorized = categorizer.categorize(&transactions);
     println!("{}", serde_yaml::to_string(&categorized)?);

@@ -18,9 +18,9 @@ use crate::{transaction::Transaction, util::RegexSerde};
 #[derive(Error, Debug, Display)]
 // TODO: fix duplicate error printing in anyhow due to source appearing twice
 pub enum Error {
-    /// io: {0}
+    /// io
     Io(#[from] std::io::Error),
-    /// serde_yaml: {0}
+    /// serde_yaml
     SerdeYaml(#[from] serde_yaml::Error),
 }
 

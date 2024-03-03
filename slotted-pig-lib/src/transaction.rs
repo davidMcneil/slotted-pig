@@ -20,28 +20,31 @@ use crate::util::RegexSerde;
 
 #[derive(Error, Debug, Display)]
 pub enum Error {
-    /// bigdecimal: {0}
+    /// bigdecimal
     BigDecimal(#[from] bigdecimal::ParseBigDecimalError),
-    /// csv: {0}
+    /// csv
     Csv(#[from] csv::Error),
-    /// dateparser: {0}
+    /// dateparser
     Dateparser(#[from] anyhow::Error),
-    /// io: {0}
+    /// io
     Io(#[from] std::io::Error),
-    /// Invalid path to file: {0}
+    /// invalid path to file: {0}
     InvalidPathToFile(PathBuf),
-    /// Missing amount: {0}
+    /// missing amount: {0}
     MissingAmount(String),
-    /// Missing account: {0}
+    /// missing account: {0}
     MissingAccount(String),
-    /// Missing description: {0}
+    /// missing description: {0}
     MissingDescription(String),
-    /// Missing time: {0}
+    /// missing time: {0}
     MissingTime(String),
-    /// No matching csv parser config: {0}
+    /// no matching csv parser config: {0}
     NoMatchingCsvConfig(PathBuf),
     /// serde_yaml: {0}
     SerdeYaml(#[from] serde_yaml::Error),
+    // TODO: this is kinda a hack and should be its own error type
+    /// failed to parse: {0}
+    ParseFailed(PathBuf, #[source] Box<Self>),
 }
 
 /// Transaction
@@ -98,35 +101,42 @@ impl TransactionParser {
         Ok(serde_yaml::from_reader(reader)?)
     }
 
-    /// Parse transactions from a CSV files
+    /// Parse transactions from CSV files
     pub fn parse_csvs<'a>(
         &self,
         paths: impl Iterator<Item = &'a Path>,
     ) -> Result<Vec<Transaction>, Error> {
         let mut transactions = Vec::new();
-
         for path in paths {
-            let filename = path
-                .file_name()
-                .and_then(|f| f.to_str())
-                .ok_or_else(|| Error::InvalidPathToFile(path.into()))?;
-
-            // Find the csv parsing config that matches this filename
-            let csv_config = self
-                .csv
-                .iter()
-                .find(|csv| csv.filename_regex.is_match(filename))
-                .ok_or_else(|| Error::NoMatchingCsvConfig(path.into()))?;
-
-            // Parse the file
-            let file = File::open(path)?;
-            let new_transactions = csv_config.parse_csv(file)?;
-
+            let new_transactions = self.parse_csv(path)?;
             // TODO: check for duplicate transactions
             transactions.extend(new_transactions);
         }
-
         Ok(transactions)
+    }
+
+    /// Parse transactions from a CSV files
+    pub fn parse_csv(&self, path: &Path) -> Result<Vec<Transaction>, Error> {
+        self.parse_csv_impl(path)
+            .map_err(|e| Error::ParseFailed(path.into(), e.into()))
+    }
+
+    fn parse_csv_impl(&self, path: &Path) -> Result<Vec<Transaction>, Error> {
+        let filename = path
+            .file_name()
+            .and_then(|f| f.to_str())
+            .ok_or_else(|| Error::InvalidPathToFile(path.into()))?;
+
+        // Find the csv parsing config that matches this filename
+        let csv_config = self
+            .csv
+            .iter()
+            .find(|csv| csv.filename_regex.is_match(filename))
+            .ok_or_else(|| Error::NoMatchingCsvConfig(path.into()))?;
+
+        // Parse the file
+        let file = File::open(path)?;
+        csv_config.parse_csv(file)
     }
 }
 
