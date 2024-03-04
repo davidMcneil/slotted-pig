@@ -13,6 +13,16 @@ categorized:
         total: "-30"
         absolute_total: "30"
         subcategories: []
+        transactions:
+          - amount: "-10"
+            account: credit card
+            description: store1
+            time: "2024-02-24T20:10:59Z"
+          - amount: "-20"
+            account: credit card
+            description: store2
+            time: "2024-02-23T20:10:59Z"
+    transactions: []
   - category: income
     count: 1
     total: "5"
@@ -23,3 +33,9 @@ categorized:
         total: "5"
         absolute_total: "5"
         subcategories: []
+        transactions:
+          - amount: "5"
+            account: checking
+            description: paycheck
+            time: "2024-02-01T20:10:59Z"
+    transactions: []
