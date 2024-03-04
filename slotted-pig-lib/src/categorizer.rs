@@ -1,4 +1,5 @@
 use std::{
+    collections::HashSet,
     fs::File,
     io::{BufReader, Cursor, Read},
     path::Path,
@@ -13,7 +14,10 @@ use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, FromInto};
 use thiserror::Error;
 
-use crate::{transaction::Transaction, util::RegexSerde};
+use crate::{
+    transaction::Transaction,
+    util::{self, RegexSerde},
+};
 
 #[derive(Error, Debug, Display)]
 pub enum Error {
@@ -21,6 +25,12 @@ pub enum Error {
     Io(#[from] std::io::Error),
     /// serde_yaml
     SerdeYaml(#[from] serde_yaml::Error),
+    /// duplicate categories in transaction matchers: {0:?}
+    DuplicateCategoriesInTransactionMatchers(HashSet<String>),
+    /// duplicate categories in category hierarchy: {0:?}
+    DuplicateCategoriesInCategoryHierarchy(HashSet<String>),
+    /// missing categories in category hierarchy: {0:?}
+    MissingCategoriesInCategoryHierarchy(HashSet<String>),
 }
 
 /// Rules to determine if a transaction matches a category
@@ -36,8 +46,10 @@ pub struct TransactionMatcher {
     pub max: Option<BigDecimal>,
     /// Regex to match against the account of the transaction
     #[serde_as(as = "Option<FromInto<RegexSerde>>")]
+    // TODO: only allow exact match
     pub account: Option<Regex>,
     /// Regex to match against the description of the transaction
+    // TODO: allow multiple regex patterns
     #[serde_as(as = "Option<FromInto<RegexSerde>>")]
     pub description: Option<Regex>,
     /// Time inclusive after which the transaction must have occurred
@@ -132,6 +144,14 @@ impl Category {
             transactions,
         }
     }
+
+    fn categories(&self) -> Vec<&str> {
+        let mut categories = vec![self.category.as_str()];
+        for subcategory in &self.subcategories {
+            categories.extend(subcategory.categories())
+        }
+        categories
+    }
 }
 
 /// Transaction categorizer
@@ -158,9 +178,39 @@ impl Categorizer {
         Self::from_reader(Cursor::new(buffer))
     }
 
-    fn from_reader<R: Read>(reader: R) -> Result<Self, Error> {
+    /// Create a new categorizer from a reader
+    pub fn from_reader<R: Read>(reader: R) -> Result<Self, Error> {
         let reader = BufReader::new(reader);
-        Ok(serde_yaml::from_reader(reader)?)
+        let categorizer = serde_yaml::from_reader::<_, Self>(reader)?;
+        categorizer.validate_categories()?;
+        Ok(categorizer)
+    }
+
+    /// Validate categories:
+    /// * no duplicate categories in transaction matchers or category hierarchy
+    /// * all transaction matcher categories exist in the category hierarchy
+    pub fn validate_categories(&self) -> Result<(), Error> {
+        let (matchers_unique, matchers_duplicates) =
+            util::vec_to_hashsets(self.matchers.iter().map(|m| m.category.as_str()));
+        if !matchers_duplicates.is_empty() {
+            return Err(Error::DuplicateCategoriesInTransactionMatchers(
+                matchers_duplicates.into_iter().map(|c| c.into()).collect(),
+            ));
+        }
+        let (hierarchy_unique, hierarchy_duplicates) =
+            util::vec_to_hashsets(self.hierarchy.iter().flat_map(|c| c.categories()));
+        if !hierarchy_duplicates.is_empty() {
+            return Err(Error::DuplicateCategoriesInCategoryHierarchy(
+                hierarchy_duplicates.into_iter().map(|c| c.into()).collect(),
+            ));
+        }
+        let mut hierarchy_missing = matchers_unique.difference(&hierarchy_unique).peekable();
+        if hierarchy_missing.peek().is_some() {
+            return Err(Error::MissingCategoriesInCategoryHierarchy(
+                hierarchy_missing.map(|c| (*c).into()).collect(),
+            ));
+        }
+        Ok(())
     }
 
     /// Categorize transactions returning a new category hierarchy
@@ -202,7 +252,6 @@ pub struct Categorized {
     /// Subcategories to consider as part of this category
     pub subcategories: Vec<Categorized>,
     /// Transactions which matched this category (only leaf categories have transactions)
-    #[serde(skip)]
     pub transactions: Vec<Transaction>,
 }
 

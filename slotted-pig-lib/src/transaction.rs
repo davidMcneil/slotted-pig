@@ -72,6 +72,7 @@ impl Transaction {
         Self::from_reader(Cursor::new(buffer))
     }
 
+    /// Create a new list of transactions from a reader
     fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
         TransactionParserCsv::default().parse_csv(reader, false)
     }
@@ -86,16 +87,17 @@ pub struct TransactionParser {
 }
 
 impl TransactionParser {
-    /// Create a new categorizer from a yaml file
+    /// Create a new transaction parser from a yaml file
     pub fn from_yaml_file<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
         Self::from_reader(File::open(path)?)
     }
 
-    /// Create a new categorizer from a yaml buffer
+    /// Create a new transaction parser from a yaml buffer
     pub fn from_yaml_buffer<B: AsRef<[u8]>>(buffer: B) -> Result<Self, Error> {
         Self::from_reader(Cursor::new(buffer))
     }
 
+    /// Create a new transaction parser from a reader
     fn from_reader<R: Read>(reader: R) -> Result<Self, Error> {
         let reader = BufReader::new(reader);
         Ok(serde_yaml::from_reader(reader)?)
