@@ -11,7 +11,7 @@ use derive_more::{From, Into};
 use displaydoc::Display;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, FromInto};
+use serde_with::{formats::PreferOne, serde_as, FromInto, OneOrMany};
 use thiserror::Error;
 
 use crate::{
@@ -45,13 +45,11 @@ pub struct TransactionMatcher {
     /// Maximum amount of the transaction inclusive
     pub max: Option<BigDecimal>,
     /// Regex to match against the account of the transaction
-    #[serde_as(as = "Option<FromInto<RegexSerde>>")]
-    // TODO: only allow exact match
-    pub account: Option<Regex>,
+    pub account: Option<String>,
     /// Regex to match against the description of the transaction
-    // TODO: allow multiple regex patterns
-    #[serde_as(as = "Option<FromInto<RegexSerde>>")]
-    pub description: Option<Regex>,
+    #[serde_as(as = "OneOrMany<FromInto<RegexSerde>, PreferOne>")]
+    #[serde(default)]
+    pub description: Vec<Regex>,
     /// Time inclusive after which the transaction must have occurred
     pub begin: Option<DateTime<Utc>>,
     /// Time inclusive before which the transaction must have occurred
@@ -74,13 +72,13 @@ impl TransactionMatcher {
         let account = self
             .account
             .as_ref()
-            .map(|r| r.is_match(&transaction.account))
+            .map(|a| a == &transaction.account)
             .unwrap_or(true);
-        let description = self
-            .description
-            .as_ref()
-            .map(|r| r.is_match(&transaction.description))
-            .unwrap_or(true);
+        let description = self.description.is_empty()
+            || self
+                .description
+                .iter()
+                .any(|r| r.is_match(&transaction.description));
         let begin = self
             .begin
             .as_ref()
@@ -238,6 +236,7 @@ impl Categorizer {
 /// Categorized transactions
 ///
 /// TODO: Avoid copying the data
+/// TODO: subcategories and transactions could be made into an enum as they are mutually exclusive
 #[derive(Debug, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Categorized {
@@ -250,8 +249,10 @@ pub struct Categorized {
     /// Total absolute amount in this category (ie sum of all subcategory absolute totals)
     pub absolute_total: BigDecimal,
     /// Subcategories to consider as part of this category
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub subcategories: Vec<Categorized>,
     /// Transactions which matched this category (only leaf categories have transactions)
+    #[serde(skip_serializing_if = "Vec::is_empty")]
     pub transactions: Vec<Transaction>,
 }
 
