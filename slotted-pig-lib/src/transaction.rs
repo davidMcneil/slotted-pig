@@ -1,4 +1,5 @@
 use std::{
+    cmp::Reverse,
     fs::File,
     io::{BufReader, Cursor, Read},
     path::{Path, PathBuf},
@@ -40,7 +41,7 @@ pub enum Error {
     MissingTime(String),
     /// no matching csv parser config: {0}
     NoMatchingCsvConfig(PathBuf),
-    /// serde_yaml: {0}
+    /// serde_yaml
     SerdeYaml(#[from] serde_yaml::Error),
     // TODO: this is kinda a hack and should be its own error type
     /// failed to parse: {0}
@@ -48,7 +49,7 @@ pub enum Error {
 }
 
 /// Transaction
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Transaction {
     /// Amount of the transaction
@@ -78,10 +79,24 @@ impl Transaction {
     }
 }
 
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TransactionSort {
+    TimeDescending,
+    #[default]
+    TimeAscending,
+    AmountDescending,
+    AmountAscending,
+    AbsoluteAmountDescending,
+    AbsoluteAmountAscending,
+}
+
 /// Configuration for parsing transactions
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionParser {
+    #[serde(default)]
+    pub sort: TransactionSort,
     #[serde(default)]
     pub csv: Vec<TransactionParserCsv>,
 }
@@ -114,6 +129,22 @@ impl TransactionParser {
             // TODO: check for duplicate transactions
             transactions.extend(new_transactions);
         }
+        match self.sort {
+            TransactionSort::TimeDescending => transactions.sort_by_key(|t| Reverse(t.time)),
+            TransactionSort::TimeAscending => transactions.sort_by_key(|t| t.time),
+            TransactionSort::AmountDescending => {
+                transactions.sort_by(|t1, t2| t2.amount.cmp(&t1.amount))
+            }
+            TransactionSort::AmountAscending => {
+                transactions.sort_by(|t1, t2| t1.amount.cmp(&t2.amount))
+            }
+            TransactionSort::AbsoluteAmountDescending => {
+                transactions.sort_by(|t1: &Transaction, t2| t2.amount.abs().cmp(&t1.amount.abs()))
+            }
+            TransactionSort::AbsoluteAmountAscending => {
+                transactions.sort_by(|t1, t2| t1.amount.abs().cmp(&t2.amount.abs()))
+            }
+        };
         Ok(transactions)
     }
 
@@ -144,7 +175,7 @@ impl TransactionParser {
 
 /// Configuration for parsing transactions from csv files
 #[serde_as]
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionParserCsv {
     /// Regex to check if a file should be parsed with this config
@@ -281,7 +312,7 @@ impl Default for TransactionParserCsv {
 }
 
 /// Determine if a columns values should be decided by a header, index, or constant
-#[derive(Debug, Clone, Deserialize)]
+#[derive(Clone, Debug, Deserialize)]
 #[serde(rename_all = "snake_case", deny_unknown_fields)]
 pub enum ColumnDeterminer {
     /// Column is a constant value
