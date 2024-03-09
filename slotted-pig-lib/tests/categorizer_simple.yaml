@@ -1,13 +1,11 @@
-matchers:
-  - category: store
-    description: "store.*"
-  - category: paycheck
-    min: 0
-
-hierarchy:
+categories:
   - category: expenses
-    subcategories:
+    children: !subcategories
       - category: store
+        children: !transaction_matchers
+          - description: "store.*"
   - category: income
-    subcategories:
+    children: !subcategories
       - category: paycheck
+        children: !transaction_matchers
+          - min: 0

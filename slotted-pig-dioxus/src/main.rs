@@ -1,7 +1,7 @@
 use dioxus::prelude::*;
 use log::LevelFilter;
 use slotted_pig_lib::{
-    categorizer::{CategorizedHierarchy, Categorizer, TransactionMatcher},
+    categorizer::{CategorizedList, Categorizer},
     transaction::Transaction,
 };
 
@@ -37,12 +37,12 @@ fn main() {
 fn App(cx: Scope) -> Element {
     let transactions = use_state(cx, || Transaction::from_csv_buffer(TRANSACTIONS).unwrap());
     let categorizer = use_state(cx, || Categorizer::from_yaml_buffer(CATEGORIZER).unwrap());
-    let categorized = use_state(cx, CategorizedHierarchy::default);
+    let categorized = use_state(cx, CategorizedList::default);
 
     render!(
         div { "Header" }
         TransactionList { transactions: transactions }
-        Categorizer { categorizer: categorizer }
+        Categorizer { _categorizer: categorizer }
         Categorized { categorized: categorized }
         button { onclick: move |_| { categorized.set(categorizer.get().categorize(transactions.get())) },
             "Categorize"
@@ -67,31 +67,12 @@ fn Transaction<'a>(cx: Scope, transaction: &'a Transaction) -> Element {
 }
 
 #[component]
-fn Categorizer<'a>(cx: Scope, categorizer: &'a UseState<Categorizer>) -> Element {
-    let categorizer = categorizer.get();
-    render!(
-        div { "Categorizer" }
-        TransactionMatcherList { matchers: &categorizer.matchers }
-    )
+fn Categorizer<'a>(cx: Scope, _categorizer: &'a UseState<Categorizer>) -> Element {
+    render!( div { "Categorizer" } )
 }
 
 #[component]
-fn TransactionMatcherList<'a>(cx: Scope, matchers: &'a Vec<TransactionMatcher>) -> Element {
-    render!(
-        div {
-            div { "Matchers" }
-            matchers.iter().map(|m| rsx!(TransactionMatcher {matcher: m}))
-        }
-    )
-}
-
-#[component]
-fn TransactionMatcher<'a>(cx: Scope, matcher: &'a TransactionMatcher) -> Element {
-    render!( div { "{matcher.category}" } )
-}
-
-#[component]
-fn Categorized<'a>(cx: Scope, categorized: &'a UseState<CategorizedHierarchy>) -> Element {
+fn Categorized<'a>(cx: Scope, categorized: &'a UseState<CategorizedList>) -> Element {
     let categorized = categorized.get();
     render!(
         div { "Categorized" }

@@ -79,24 +79,33 @@ impl Transaction {
     }
 }
 
-#[derive(Clone, Debug, Default, Deserialize)]
+/// Sort possibilities for transactions
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum TransactionSort {
+    /// Sort by transaction time descending
     TimeDescending,
+    /// Sort by transaction time ascending
     #[default]
     TimeAscending,
+    /// Sort by transaction amount time descending
     AmountDescending,
+    /// Sort by transaction amount time ascending
     AmountAscending,
+    /// Sort by transaction absolute amount time descending
     AbsoluteAmountDescending,
+    /// Sort by transaction absolute amount time ascending
     AbsoluteAmountAscending,
 }
 
 /// Configuration for parsing transactions
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionParser {
+    // TODO: move to categorizer
     #[serde(default)]
     pub sort: TransactionSort,
+    /// CSV parsing config
     #[serde(default)]
     pub csv: Vec<TransactionParserCsv>,
 }
@@ -175,7 +184,7 @@ impl TransactionParser {
 
 /// Configuration for parsing transactions from csv files
 #[serde_as]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionParserCsv {
     /// Regex to check if a file should be parsed with this config
@@ -312,8 +321,8 @@ impl Default for TransactionParserCsv {
 }
 
 /// Determine if a columns values should be decided by a header, index, or constant
-#[derive(Clone, Debug, Deserialize)]
-#[serde(rename_all = "snake_case", deny_unknown_fields)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum ColumnDeterminer {
     /// Column is a constant value
     Constant(String),

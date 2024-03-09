@@ -7,31 +7,35 @@ categorized:
     count: 2
     total: "-30"
     absolute_total: "30"
-    subcategories:
-      - category: store
-        count: 2
-        total: "-30"
-        absolute_total: "30"
-        transactions:
-          - amount: "-10"
-            account: credit card
-            description: store1
-            time: "2024-02-24T20:10:59Z"
-          - amount: "-20"
-            account: credit card
-            description: store2
-            time: "2024-02-23T20:10:59Z"
+    children:
+      subcategories:
+        - category: store
+          count: 2
+          total: "-30"
+          absolute_total: "30"
+          children:
+            transactions:
+              - amount: "-10"
+                account: credit card
+                description: store1
+                time: "2024-02-24T20:10:59Z"
+              - amount: "-20"
+                account: credit card
+                description: store2
+                time: "2024-02-23T20:10:59Z"
   - category: income
     count: 1
     total: "5"
     absolute_total: "5"
-    subcategories:
-      - category: paycheck
-        count: 1
-        total: "5"
-        absolute_total: "5"
-        transactions:
-          - amount: "5"
-            account: checking
-            description: paycheck
-            time: "2024-02-01T20:10:59Z"
+    children:
+      subcategories:
+        - category: paycheck
+          count: 1
+          total: "5"
+          absolute_total: "5"
+          children:
+            transactions:
+              - amount: "5"
+                account: checking
+                description: paycheck
+                time: "2024-02-01T20:10:59Z"
