@@ -44,7 +44,7 @@ fn App(cx: Scope) -> Element {
         TransactionList { transactions: transactions }
         Categorizer { _categorizer: categorizer }
         Categorized { categorized: categorized }
-        button { onclick: move |_| { categorized.set(categorizer.get().categorize(transactions.get())) },
+        button { onclick: move |_| { categorized.set(categorizer.get().categorize(transactions.get()).0) },
             "Categorize"
         }
         Counter {}

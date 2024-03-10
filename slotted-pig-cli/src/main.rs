@@ -8,7 +8,10 @@ use sloggers::{
     types::{Severity, SourceLocation},
     Build,
 };
-use slotted_pig_lib::{categorizer::Categorizer, transaction::TransactionParser};
+use slotted_pig_lib::{
+    categorizer::{Categorizer, CategorySort, TransactionSort},
+    transaction::{Transaction, TransactionParser},
+};
 
 /// The simple finance tracker
 #[derive(Debug, Parser)]
@@ -36,10 +39,20 @@ struct Args {
 enum Command {
     /// Output the categorized yaml
     #[command()]
-    Categorize,
+    Categorize(Categorize),
     /// Output the transactions csv
     #[command()]
     Transactions,
+}
+
+#[derive(Debug, Parser)]
+struct Categorize {
+    /// How to sort the categories
+    #[arg(long)]
+    category_sort: Option<CategorySort>,
+    /// How to sort the transactions
+    #[arg(long)]
+    transaction_sort: Option<TransactionSort>,
 }
 
 fn main() -> Result<()> {
@@ -66,17 +79,29 @@ fn main() -> Result<()> {
         .context("failed to parse transaction files")?;
 
     match args.command {
-        Command::Categorize => {
-            let categorized = categorizer.categorize(&transactions);
+        Command::Categorize(categorize) => {
+            let (mut categorized, uncategorized) = categorizer.categorize(&transactions);
+            write_transactions(&uncategorized, io::stderr())?;
+            if let Some(sort) = categorize.category_sort {
+                categorized.sort_subcategorized(sort);
+            }
+            if let Some(sort) = categorize.transaction_sort {
+                categorized.sort_transactions(sort);
+            }
             println!("{}", serde_yaml::to_string(&categorized)?);
         }
         Command::Transactions => {
-            let mut writer = Writer::from_writer(io::stdout());
-            for row in &transactions {
-                writer.serialize(row)?;
-            }
-            writer.flush()?;
+            write_transactions(&transactions.iter().collect::<Vec<_>>(), io::stdout())?
         }
     }
+    Ok(())
+}
+
+fn write_transactions<W: io::Write>(transactions: &[&Transaction], writer: W) -> Result<()> {
+    let mut writer = Writer::from_writer(writer);
+    for row in transactions {
+        writer.serialize(row)?;
+    }
+    writer.flush()?;
     Ok(())
 }

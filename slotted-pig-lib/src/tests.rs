@@ -9,6 +9,7 @@ use crate::{categorizer::Categorizer, transaction::Transaction};
 fn test_categorizer(categorizer: &str, transactions: &str, name: &str) -> Result<()> {
     let categorizer = Categorizer::from_yaml_file(categorizer)?;
     let transactions = Transaction::from_csv_file(transactions)?;
-    assert_yaml_snapshot!(name, categorizer.categorize(&transactions));
+    let (categorized, _uncategorized) = categorizer.categorize(&transactions);
+    assert_yaml_snapshot!(name, categorized);
     Ok(())
 }

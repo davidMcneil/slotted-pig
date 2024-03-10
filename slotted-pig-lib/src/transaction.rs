@@ -1,5 +1,4 @@
 use std::{
-    cmp::Reverse,
     fs::File,
     io::{BufReader, Cursor, Read},
     path::{Path, PathBuf},
@@ -77,34 +76,16 @@ impl Transaction {
     fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
         TransactionParserCsv::default().parse_csv(reader, false)
     }
-}
 
-/// Sort possibilities for transactions
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
-#[serde(rename_all = "snake_case")]
-pub enum TransactionSort {
-    /// Sort by transaction time descending
-    TimeDescending,
-    /// Sort by transaction time ascending
-    #[default]
-    TimeAscending,
-    /// Sort by transaction amount time descending
-    AmountDescending,
-    /// Sort by transaction amount time ascending
-    AmountAscending,
-    /// Sort by transaction absolute amount time descending
-    AbsoluteAmountDescending,
-    /// Sort by transaction absolute amount time ascending
-    AbsoluteAmountAscending,
+    pub fn filter_transactions(&mut self) {
+        todo!()
+    }
 }
 
 /// Configuration for parsing transactions
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct TransactionParser {
-    // TODO: move to categorizer
-    #[serde(default)]
-    pub sort: TransactionSort,
     /// CSV parsing config
     #[serde(default)]
     pub csv: Vec<TransactionParserCsv>,
@@ -138,22 +119,6 @@ impl TransactionParser {
             // TODO: check for duplicate transactions
             transactions.extend(new_transactions);
         }
-        match self.sort {
-            TransactionSort::TimeDescending => transactions.sort_by_key(|t| Reverse(t.time)),
-            TransactionSort::TimeAscending => transactions.sort_by_key(|t| t.time),
-            TransactionSort::AmountDescending => {
-                transactions.sort_by(|t1, t2| t2.amount.cmp(&t1.amount))
-            }
-            TransactionSort::AmountAscending => {
-                transactions.sort_by(|t1, t2| t1.amount.cmp(&t2.amount))
-            }
-            TransactionSort::AbsoluteAmountDescending => {
-                transactions.sort_by(|t1: &Transaction, t2| t2.amount.abs().cmp(&t1.amount.abs()))
-            }
-            TransactionSort::AbsoluteAmountAscending => {
-                transactions.sort_by(|t1, t2| t1.amount.abs().cmp(&t2.amount.abs()))
-            }
-        };
         Ok(transactions)
     }
 

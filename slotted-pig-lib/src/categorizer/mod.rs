@@ -61,7 +61,10 @@ impl Categorizer {
     }
 
     /// Categorize transactions returning a new category hierarchy
-    pub fn categorize(&self, transactions: &[Transaction]) -> CategorizedList {
+    pub fn categorize<'a>(
+        &self,
+        transactions: &'a [Transaction],
+    ) -> (CategorizedList, Vec<&'a Transaction>) {
         let mut categorized_transactions = HashSet::new();
         let categorized = self
             .categories
@@ -69,25 +72,13 @@ impl Categorizer {
             .map(|category| category.categorize(transactions, &mut categorized_transactions))
             .collect::<Vec<_>>()
             .into();
-        // TODO: return uncategorized transactions
-        for (i, transaction) in transactions.iter().enumerate() {
-            if !categorized_transactions.contains(&i) {
-                eprintln!("{:?}", transaction);
-            }
-        }
-        categorized
-    }
-
-    pub fn sort_categories(&mut self) {
-        todo!()
-    }
-
-    pub fn sort_transactions(&mut self) {
-        todo!()
-    }
-
-    pub fn filter_transactions(&mut self) {
-        todo!()
+        let uncategorized = transactions
+            .iter()
+            .enumerate()
+            .filter(|(i, _)| !categorized_transactions.contains(i))
+            .map(|(_, t)| t)
+            .collect();
+        (categorized, uncategorized)
     }
 }
 
