@@ -16,7 +16,7 @@ pub struct CategorizedList {
 
 impl CategorizedList {
     /// Sort categories by the sort type
-    pub fn sort_subcategorized(&mut self, sort: CategorySort) {
+    pub fn sort_subcategories(&mut self, sort: CategorySort) {
         Categorized::sort_categorized(&mut self.categorized, sort)
     }
 
@@ -47,14 +47,14 @@ pub struct Categorized {
 }
 
 impl Categorized {
-    fn sort_subcategorized(&mut self, sort: CategorySort) {
-        let CategorizedChildren::Subcategorized(categories) = &mut self.children else {
+    fn sort_subcategories(&mut self, sort: CategorySort) {
+        let CategorizedChildren::Subcategories(categories) = &mut self.children else {
             return;
         };
         Self::sort_categorized(categories, sort);
     }
 
-    fn sort_categorized(categorized: &mut Vec<Categorized>, sort: CategorySort) {
+    fn sort_categorized(categorized: &mut [Categorized], sort: CategorySort) {
         match sort {
             CategorySort::TotalDescending => categorized.sort_by(|c1, c2| c2.total.cmp(&c1.total)),
             CategorySort::TotalAscending => categorized.sort_by(|c1, c2| c1.total.cmp(&c2.total)),
@@ -73,7 +73,7 @@ impl Categorized {
         }
         categorized
             .iter_mut()
-            .for_each(|c| c.sort_subcategorized(sort));
+            .for_each(|c| c.sort_subcategories(sort));
     }
 
     fn sort_transactions(&mut self, sort: TransactionSort) {
@@ -93,7 +93,7 @@ impl Categorized {
                     transactions.sort_by(|t1, t2| t1.amount.abs().cmp(&t2.amount.abs()))
                 }
             },
-            CategorizedChildren::Subcategorized(subcategories) => {
+            CategorizedChildren::Subcategories(subcategories) => {
                 subcategories
                     .iter_mut()
                     .for_each(|c| c.sort_transactions(sort));
@@ -109,7 +109,7 @@ pub enum CategorizedChildren {
     /// Child transactions
     Transactions(Vec<Transaction>),
     /// Child categories
-    Subcategorized(Vec<Categorized>),
+    Subcategories(Vec<Categorized>),
 }
 
 /// Sort possibilities for scategories

@@ -83,7 +83,7 @@ fn main() -> Result<()> {
             let (mut categorized, uncategorized) = categorizer.categorize(&transactions);
             write_transactions(&uncategorized, io::stderr())?;
             if let Some(sort) = categorize.category_sort {
-                categorized.sort_subcategorized(sort);
+                categorized.sort_subcategories(sort);
             }
             if let Some(sort) = categorize.transaction_sort {
                 categorized.sort_transactions(sort);
