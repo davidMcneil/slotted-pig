@@ -76,10 +76,6 @@ impl Transaction {
     fn from_reader<R: Read>(reader: R) -> Result<Vec<Self>, Error> {
         TransactionParserCsv::default().parse_csv(reader, false)
     }
-
-    pub fn filter_transactions(&mut self) {
-        todo!()
-    }
 }
 
 /// Configuration for parsing transactions
@@ -236,7 +232,7 @@ impl TransactionParserCsv {
             }
             let account = account.to_string();
             let description = description.to_string();
-            let time = dateparser::parse(time)?;
+            let time = dateparser::parse_with_timezone(time, &Utc)?;
 
             let transaction = Transaction {
                 amount,

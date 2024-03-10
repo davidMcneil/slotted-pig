@@ -53,12 +53,12 @@ impl TransactionMatcher {
         let begin = self
             .begin
             .as_ref()
-            .map(|a| a >= &transaction.time)
+            .map(|a| a <= &transaction.time)
             .unwrap_or(true);
         let end = self
             .end
             .as_ref()
-            .map(|a| a <= &transaction.time)
+            .map(|a| a >= &transaction.time)
             .unwrap_or(true);
         min && max && account && description && begin && end
     }

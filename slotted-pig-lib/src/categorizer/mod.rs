@@ -39,6 +39,8 @@ pub enum Error {
 #[derive(Debug, Deserialize, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Categorizer {
+    /// Filters to apply to transactions before doing any categorization
+    pub transaction_filters: Option<Vec<TransactionMatcher>>,
     /// Category hierarchy
     pub categories: Vec<Category>,
 }
@@ -65,18 +67,26 @@ impl Categorizer {
         &self,
         transactions: &'a [Transaction],
     ) -> (CategorizedList, Vec<&'a Transaction>) {
+        let transactions = transactions
+            .iter()
+            .filter(|t| {
+                self.transaction_filters
+                    .as_ref()
+                    .map_or(true, |filters| filters.iter().any(|f| f.matches(t)))
+            })
+            .collect::<Vec<_>>();
         let mut categorized_transactions = HashSet::new();
         let categorized = self
             .categories
             .iter()
-            .map(|category| category.categorize(transactions, &mut categorized_transactions))
+            .map(|category| category.categorize(&transactions, &mut categorized_transactions))
             .collect::<Vec<_>>()
             .into();
         let uncategorized = transactions
             .iter()
             .enumerate()
             .filter(|(i, _)| !categorized_transactions.contains(i))
-            .map(|(_, t)| t)
+            .map(|(_, t)| *t)
             .collect();
         (categorized, uncategorized)
     }
@@ -95,7 +105,7 @@ pub struct Category {
 impl Category {
     fn categorize(
         &self,
-        transactions: &[Transaction],
+        transactions: &[&Transaction],
         categorized: &mut HashSet<usize>,
     ) -> Categorized {
         let mut count = 0;
@@ -114,7 +124,7 @@ impl Category {
                         total += t.amount.clone();
                         absolute_total += t.amount.abs();
                         categorized.insert(i);
-                        Some(t)
+                        Some(*t)
                     } else {
                         None
                     }
