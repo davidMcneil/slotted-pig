@@ -48,7 +48,7 @@ pub enum Error {
 }
 
 /// Transaction
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Transaction {
     /// Amount of the transaction

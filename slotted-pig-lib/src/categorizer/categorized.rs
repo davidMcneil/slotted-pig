@@ -8,7 +8,7 @@ use strum::EnumString;
 use crate::transaction::Transaction;
 
 /// Categorized transaction hierarchy
-#[derive(Debug, Default, Into, From, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Into, From, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct CategorizedList {
     pub categorized: Vec<Categorized>,
@@ -31,7 +31,7 @@ impl CategorizedList {
 /// Categorized transactions
 ///
 /// TODO: Avoid copying the data
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(deny_unknown_fields)]
 pub struct Categorized {
     /// Category name
@@ -103,7 +103,7 @@ impl Categorized {
 }
 
 // Possible categorized children, either a list of transactions or subcategories
-#[derive(Debug, Deserialize, From, Serialize)]
+#[derive(Clone, Debug, Deserialize, From, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
 pub enum CategorizedChildren {
     /// Child transactions

@@ -1,6 +1,6 @@
 [workspace]
 resolver = "2"
-members = ["slotted-pig-cli", "slotted-pig-dioxus", "slotted-pig-lib"]
+members = ["slotted-pig-cli", "slotted-pig-ui", "slotted-pig-lib"]
 
 # # TODO: put this behind the wasm target
 [profile.release]
