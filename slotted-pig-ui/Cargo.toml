@@ -4,11 +4,13 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
+anyhow = "1"
 bigdecimal = "0.4"
 chrono = "0.4"
 dioxus = { version = "0.5.0-alpha.2" }
 dioxus-logger = "0.4"
 log = "0.4"
+serde = "1"
 serde_yaml = "0.9"
 slotted-pig-lib = { path = "../slotted-pig-lib" }
 
