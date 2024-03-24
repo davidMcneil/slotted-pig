@@ -1,0 +1,19 @@
+categories:
+  - category: Income
+    children: !transaction_matchers
+      - min: 0
+        description: Income
+  - category: Expenses
+    children: !subcategories
+      - category: Food
+        children: !transaction_matchers
+          - max: 0
+            description:
+              - Groceries.*
+              - Restaurant
+      - category: Utilities
+        children: !transaction_matchers
+          - max: 0
+            description:
+              - Electricity
+              - Water

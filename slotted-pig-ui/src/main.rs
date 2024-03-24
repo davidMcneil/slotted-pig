@@ -31,7 +31,7 @@ fn App() -> Element {
     info!("slotted-pig");
 
     let mut categorized_list_result = use_signal(|| {
-        let categorized = include_str!("../../personal/categorized.yaml");
+        let categorized = include_str!("../../examples/categorized.yaml");
         Ok::<_, String>(
             serde_yaml::from_str::<CategorizedList>(categorized).expect("failed to parse YAML"),
         )

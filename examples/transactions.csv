@@ -1,0 +1,7 @@
+amount,account,description,time
+1000.00,Account1,Income,2023-05-10T08:00:00Z
+-50.00,Account2,Groceries 1,2023-05-11T12:00:00Z
+-25.00,Account2,Groceries 2,2023-05-11T12:00:00Z
+-13.75,Account2,Restaurant,2023-05-11T12:00:00Z
+-75.50,Account2,Electricity,2023-05-11T00:00:00Z
+-14,Account2,Water,2023-05-11T00:00:00Z

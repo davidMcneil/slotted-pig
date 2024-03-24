@@ -1,0 +1,7 @@
+csv:
+  - filename_regex: .*\.csv
+    has_header: true
+    amount_column: !header amount
+    account_column: !header account
+    description_column: !header description
+    time_column: !header time

@@ -1,0 +1,46 @@
+categorized:
+- category: Income
+  count: 1
+  total: '1000.00'
+  absolute_total: '1000.00'
+  children: !transactions
+  - amount: '1000.00'
+    account: Account1
+    description: Income
+    time: 2023-05-10T08:00:00Z
+- category: Expenses
+  count: 5
+  total: '-189.50'
+  absolute_total: '189.50'
+  children: !subcategories
+  - category: Food
+    count: 3
+    total: '-100.00'
+    absolute_total: '100.00'
+    children: !transactions
+    - amount: '-50.00'
+      account: Account2
+      description: Groceries 1
+      time: 2023-05-11T12:00:00Z
+    - amount: '-25.00'
+      account: Account2
+      description: Groceries 2
+      time: 2023-05-11T12:00:00Z
+    - amount: '-25.00'
+      account: Account2
+      description: Restaurant
+      time: 2023-05-11T12:00:00Z
+  - category: Utilities
+    count: 2
+    total: '-89.50'
+    absolute_total: '89.50'
+    children: !transactions
+    - amount: '-75.50'
+      account: Account2
+      description: Electricity
+      time: 2023-05-11T00:00:00Z
+    - amount: '-14'
+      account: Account2
+      description: Water
+      time: 2023-05-11T00:00:00Z
+
