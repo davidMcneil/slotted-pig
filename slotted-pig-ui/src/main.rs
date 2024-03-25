@@ -45,10 +45,10 @@ fn App() -> Element {
                     r#type: "file",
                     accept: ".yaml",
                     multiple: false,
-                    onchange: move |evt| {
+                    oninput: move |event| {
                         async move {
                             *categorized_list_result
-                                .write() = read_first_file(evt.files()).await.map_err(|e| e.to_string());
+                                .write() = read_first_file(event.files()).await.map_err(|e| e.to_string());
                         }
                     }
                 }
@@ -132,7 +132,9 @@ fn Transaction(transaction: Transaction) -> Element {
     } = transaction;
     rsx!(
         Amount { amount: amount }
+        " | "
         Time { time }
+        " | "
         span { class: "font-mono text-xs", "{description}" }
     )
 }
