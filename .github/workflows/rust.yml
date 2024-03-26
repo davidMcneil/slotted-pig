@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Dioxus Deploy"
-        uses: DioxusLabs/deploy-action@v5
+        uses: kualta/depl
         with:
           buildMode: "release"
           toolchain: "stable"
