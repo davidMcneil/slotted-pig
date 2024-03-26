@@ -70,7 +70,7 @@ fn CategorizedList(categorized_list: Vec<Categorized>) -> Element {
     rsx!(
         ul { class: "list-disc pl-4",
             for categorized in categorized_list {
-                li {
+                li { key: "{categorized.category}",
                     Categorized { categorized }
                 }
             }
