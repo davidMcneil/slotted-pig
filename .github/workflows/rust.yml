@@ -2,12 +2,15 @@ name: Rust
 
 on:
   push:
-    branches: ["master"]
+    branches: ["ci"]
   pull_request:
     branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -27,9 +30,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Dioxus Deploy"
-        uses: kualta/depl
+        uses: davidMcneil/dioxus-deploy-action@c0c390be1298b58e8b47850cf1e85c3fcf13772c
         with:
           buildMode: "release"
+          features: "web"
           toolchain: "stable"
-          outDirectory: "slotted-pig-ui/dist"
+          outDirectory: "dist"
           rootPath: "slotted-pig-ui"
