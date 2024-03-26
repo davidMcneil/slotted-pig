@@ -23,11 +23,11 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
 
-  build-deploy:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: "Dioxus Deploy"
-        uses: DioxusLabs/deploy-action@v1
+        uses: DioxusLabs/deploy-action@v5
         with:
           buildMode: "release"
           toolchain: "stable"
