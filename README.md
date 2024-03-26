@@ -15,7 +15,7 @@ From `slotted-pig-ui` run the following commands for ui development
 Run on the desktop
 > dx serve --hot-reload --features desktop --platform desktop
 
-Run for the web
+Run for the web. First you have to comment out `base_path = "slotted-pig"` in Dioxus.toml
 > dx serve --hot-reload --features web --platform web
 
 If you are editing CSS you need to run the below to have `assets/tailwind.css` automatically updated.
