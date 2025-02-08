@@ -4,16 +4,16 @@ use anyhow::{anyhow, Result};
 use bigdecimal::BigDecimal;
 use chrono::{DateTime, Utc};
 use dioxus::{html::FileEngine, prelude::*};
-use log::{info, LevelFilter};
 use serde::de::DeserializeOwned;
 use slotted_pig_lib::{
     categorizer::{Categorized, CategorizedChildren, CategorizedList},
     transaction::Transaction,
     util::format_bigdecimal,
 };
+use tracing::{info, Level};
 
 fn main() {
-    dioxus_logger::init(LevelFilter::Info).expect("failed to init logger");
+    dioxus_logger::init(Level::INFO).expect("failed to init logger");
 
     #[cfg(feature = "desktop")]
     {
@@ -48,7 +48,9 @@ fn App() -> Element {
                     oninput: move |event| {
                         async move {
                             *categorized_list_result
-                                .write() = read_first_file(event.files()).await.map_err(|e| e.to_string());
+                                .write() = read_first_file(event.files())
+                                .await
+                                .map_err(|e| e.to_string());
                         }
                     }
                 }
@@ -91,7 +93,9 @@ fn Categorized(categorized: Categorized) -> Element {
     } = categorized;
 
     rsx!(
-        div { class: "hover:cursor-pointer", onclick: move |_| *hidden.write() = !hidden(),
+        div {
+            class: "hover:cursor-pointer",
+            onclick: move |_| *hidden.write() = !hidden(),
             span { class: "font-mono text-base px-1", "{category}" }
             span { class: "font-mono text-sm px-1", "[{count}]" }
             Amount { amount: total }
@@ -131,7 +135,7 @@ fn Transaction(transaction: Transaction) -> Element {
         ..
     } = transaction;
     rsx!(
-        Amount { amount: amount }
+        Amount { amount }
         " | "
         Time { time }
         " | "
@@ -142,13 +146,17 @@ fn Transaction(transaction: Transaction) -> Element {
 #[component]
 fn Amount(amount: BigDecimal) -> Element {
     let amount = format_bigdecimal(&amount);
-    rsx!( span { class: "font-mono text-sm px-1", "{amount}" } )
+    rsx!(
+        span { class: "font-mono text-sm px-1", "{amount}" }
+    )
 }
 
 #[component]
 fn Time(time: DateTime<Utc>) -> Element {
     let time = time.format("%Y-%m-%d");
-    rsx!( span { class: "font-mono text-sm px-1", "{time}" } )
+    rsx!(
+        span { class: "font-mono text-sm px-1", "{time}" }
+    )
 }
 
 pub async fn read_first_file<T: DeserializeOwned>(

@@ -10,6 +10,9 @@ Print transactions
 Output categorized transactions to `examples/categorized.yaml`
 > cargo run --bin slotted-pig-cli -- --transaction-parser-path examples/transaction_parser.yaml --transaction-path-pattern "examples/*.csv" --categorizer-path examples/categorizer.yaml categorize --transaction-sort absolute_amount_descending --category-sort absolute_total_descending  > examples/categorized.yaml
 
+Output personal categorized transactions
+> cargo run --bin slotted-pig-cli -- --transaction-parser-path personal/transaction_parser.yaml --transaction-path-pattern "personal/2024/*.csv" --categorizer-path personal/categorizers/specific.yaml categorize --transaction-sort absolute_amount_descending --category-sort absolute_total_descending > personal/categorized.yaml
+
 From `slotted-pig-ui` run the following commands for ui development
 
 Run on the desktop
